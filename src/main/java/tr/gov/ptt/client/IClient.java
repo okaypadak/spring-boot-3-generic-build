@@ -1,20 +1,21 @@
 package tr.gov.ptt.client;
 
 import tr.gov.ptt.dto.CikarDTO;
+import tr.gov.ptt.dto.Kullanici;
 import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.MutabakatKapatRequest;
-import tr.gov.ptt.dto.request.GenelEkleRequest;
+import tr.gov.ptt.dto.request.TalimatEkleRequest;
 import tr.gov.ptt.dto.request.TalimatSorgulaRequest;
 import org.springframework.stereotype.Component;
+import tr.gov.ptt.entity.TalimatEntity;
+import tr.gov.ptt.enumeration.Kurum;
 
 @Component
-public interface IClient<T> {
+public interface IClient {
 
-    void setKurum(String kurum);
-
-    TalimatOutput<?> sorgula(TalimatSorgulaRequest input) throws Exception;
-    TalimatOutput<?> ekle(GenelEkleRequest input) throws Exception;
-    TalimatOutput<?> cikar(CikarDTO input) throws Exception;
-    TalimatOutput<?> mutabakatKapat(MutabakatKapatRequest input) throws Exception;
+    TalimatOutput sorgula(TalimatSorgulaRequest input);
+    TalimatOutput ekle(TalimatEkleRequest input);
+    TalimatOutput cikar(TalimatEntity input);
+    TalimatOutput mutabakatKapat(MutabakatKapatRequest input);
 
 }

@@ -11,10 +11,10 @@ import org.springframework.stereotype.Component;
 @Scope(value = ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 @Lazy
 @Slf4j
-@NoArgsConstructor
-public class WebKanal extends TemelKanal {
+
+public class IpcKanal extends TemelKanal {
     public void otherMethod() {
-        log.info("otherDefaultMethod");
+        System.out.println("otherDefaultMethod");
     }
 
 }

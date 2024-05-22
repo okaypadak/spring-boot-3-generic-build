@@ -1,17 +1,19 @@
 package tr.gov.ptt.client;
 
-import tr.gov.ptt.dto.CikarDTO;
+import tr.gov.ptt.dto.AraIslemOutput;
+import tr.gov.ptt.dto.Kullanici;
 import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.MutabakatKapatRequest;
-import tr.gov.ptt.dto.request.GenelEkleRequest;
+import tr.gov.ptt.dto.request.TalimatEkleRequest;
 import tr.gov.ptt.dto.request.TalimatSorgulaRequest;
+import tr.gov.ptt.dto.response.TurkcellSorguResponse;
+import tr.gov.ptt.entity.TalimatEntity;
+import tr.gov.ptt.exception.ClientException;
 import tr.gov.ptt.util.DateUtil;
 import tr.gov.ptt.ws.client.turkcell.CollGW.*;
-import tr.gov.ptt.kurulum.Kurum;
+import tr.gov.ptt.enumeration.Kurum;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import tr.gov.ptt.ws.client.turkcell.CollGW.*;
-import tr.gov.ptt.ws.client.turkcell.CollGW.*;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -22,8 +24,7 @@ import java.util.Date;
 public class TurkcellClient implements IClient {
 
     private CollgwInformWebServiceProxy proxyTurkcell;
-    private Kurum kurum;
-
+    
     private static final String TURKCELL_PARA_KODU_TL = "949";
     private static final Integer TURKCELL_BANKID = 1999;
 
@@ -33,43 +34,46 @@ public class TurkcellClient implements IClient {
     private static int turkcellSirketKodu = 532;
 
     private static String sessionId;
+    
 
-    @Override
-    public void setKurum(String kurum) {
-        this.kurum = Kurum.valueOf(kurum);
-    }
-
-    private void logon() throws Exception {
+    private void logon() {
 
         if(sessionId == null || sessionId.isEmpty()) {
 
             proxyTurkcell = new CollgwInformWebServiceProxy();
-            proxyTurkcell.setEndpoint(kurum.getUrl());
+            proxyTurkcell.setEndpoint(Kurum.turkcell.getUrl());
 
             LogonRequest logonRequest = new LogonRequest();
             logonRequest.setBankId(TURKCELL_BANKID);
             logonRequest.setMsgDate(DateUtil.yyyyMMddHHmmss2String());
-            logonRequest.setPassword(kurum.getSifre());
+            logonRequest.setPassword(Kurum.turkcell.getSifre());
             logonRequest.setStan(10025);
 
             LogonResponse logonResponse;
-            logonResponse = proxyTurkcell.informWebServiceLogon(logonRequest);
 
-            if (80 <= Integer.parseInt(logonResponse.getRespCode()) && Integer.parseInt(logonResponse.getRespCode()) <= 99) {
+            try {
+                logonResponse = proxyTurkcell.informWebServiceLogon(logonRequest);
 
-                if (logonResponse.getSessionId() == null || logonResponse.getSessionId().isEmpty()) {
-                    log.warn("kurum: {}, session oluşturalamadi", kurum.name());
-                    throw new RuntimeException("sessionId oluşturulamadı, işlemi tekrar deneyiniz");
+                if (80 <= Integer.parseInt(logonResponse.getRespCode()) && Integer.parseInt(logonResponse.getRespCode()) <= 99) {
+
+                    if (logonResponse.getSessionId() == null || logonResponse.getSessionId().isEmpty()) {
+                        log.warn("kurum: {}, session oluşturalamadi", Kurum.turkcell.name());
+                        throw new RuntimeException("sessionId oluşturulamadı, işlemi tekrar deneyiniz");
+                    }
                 }
+
+                sessionId = logonResponse.getSessionId();
+            } catch (Exception e) {
+                throw new RuntimeException("SessionId alınamadı");
             }
 
-            sessionId = logonResponse.getSessionId();
+
         }
 
     }
 
     @Override
-    public TalimatOutput sorgula(TalimatSorgulaRequest input) throws Exception {
+    public TalimatOutput sorgula(TalimatSorgulaRequest input) {
 
         logon();
 
@@ -84,13 +88,23 @@ public class TurkcellClient implements IClient {
         request.setSessionId(sessionId);
         request.setStan(generateStan());
         Origin originator = new Origin();
-        originator.setBranch("6");
-        originator.setCity(6);
-        originator.setTeller("6");
-        originator.setUser("6");
+        Kullanici kullanici = input.getKullanici();
+        originator.setBranch(kullanici.getSubeId().toString());
+        originator.setCity(kullanici.getMerkezId());
+        originator.setTeller(kullanici.getGiseNo().toString());
+        originator.setUser(kullanici.getKullaniciId().toString());
         request.setOrig(originator);
 
-        SubscriberInfoResponse response = proxyTurkcell.getSubscriberInfoByKey(request);
+
+        SubscriberInfoResponse response;
+
+        try {
+            response = proxyTurkcell.getSubscriberInfoByKey(request);
+        } catch (Exception e) {
+            log.warn("kurum: {}, sunucu hatası yakalandı, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
+        }
+
         CustomerInformation info = response.getCustomerInformation();
 
         if(response.getErrMsg().equals("ok")) {
@@ -98,29 +112,29 @@ public class TurkcellClient implements IClient {
             Integer talimatDurum = info.getApFound();
 
             if(talimatDurum == 0) {
-                log.info("kurum: {}, talimatı yapılabilir, telefon: {}", kurum.name(), input.getTelefonNo());
-                return TalimatOutput.builder().sonuc("00").aciklama("Talimat yapilabilir").build();
+                log.info("kurum: {}, talimatı yapılabilir, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+                return TalimatOutput.builder().sonuc(true).aciklama("Talimat yapilabilir").detay(TurkcellSorguResponse.builder().adSoyad(response.getName()).build()).build();
             } else if(talimatDurum == 1) {
 
                 Integer talimatliKurum = response.getCustomerInformation().getApCompany();
 
                 if(talimatliKurum == 1999) {
-                    log.info("kurum: {}, kurum içi talimatı var, telefon: {}", kurum.name(), input.getTelefonNo());
-                    return TalimatOutput.builder().sonuc("01").aciklama("Kurum ici talimat var").build();
+                    log.info("kurum: {}, kurum içi talimatı var, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+                    return TalimatOutput.builder().sonuc(false).aciklama("Kurum ici talimat var").build();
                 } else {
-                    log.info("kurum: {}, başka kurumda talimatı var, telefon: {}", kurum.name(), input.getTelefonNo());
-                    return TalimatOutput.builder().sonuc("01").aciklama("Baska kurumda talimat var").build();
+                    log.info("kurum: {}, başka kurumda talimatı var, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+                    return TalimatOutput.builder().sonuc(false).aciklama("Baska kurumda talimat var").build();
                 }
             }
 
         }
 
-        return TalimatOutput.builder().sonuc("01").aciklama("Hata!").build();
+        return TalimatOutput.builder().sonuc(false).aciklama("Hata!").build();
 
     }
 
     @Override
-    public TalimatOutput<?> ekle(GenelEkleRequest input) throws Exception {
+    public TalimatOutput<?> ekle(TalimatEkleRequest input) {
 
         logon();
 
@@ -144,21 +158,29 @@ public class TurkcellClient implements IClient {
 
         request.setCustomerInformation(customerInformation);
 
+        Kullanici kullanici = input.getKullanici();
         Origin originator = new Origin();
-        originator.setBranch("6");
-        originator.setCity(6);
-        originator.setTeller("6");
-        originator.setUser("6");
+        originator.setBranch(kullanici.getSubeId().toString());
+        originator.setCity(kullanici.getMerkezId());
+        originator.setTeller(kullanici.getGiseNo().toString());
+        originator.setUser(kullanici.getKullaniciId().toString());
         request.setOrig(originator);
 
-        BaseOutputResponse response = proxyTurkcell.giveAutoPaymentOrderByKey(request);
+        BaseOutputResponse response = null;
+
+        try {
+            response = proxyTurkcell.giveAutoPaymentOrderByKey(request);
+        } catch (Exception e) {
+            log.warn("kurum: {}, sunucu hatası yakalandı, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
+        }
 
         if(response.getErrMsg().equals("ok")) {
-            log.info("kurum: {}, talimat ekle işlemi başarılı, telefon: {}", kurum.name(), input.getTelefonNo());
-            return TalimatOutput.builder().sonuc("00").aciklama("Talimat ekle işlemi başarılı").detay(response).build();
+            log.info("kurum: {}, talimat ekle işlemi başarılı, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+            return TalimatOutput.builder().sonuc(true).aciklama("Talimat ekle işlemi başarılı").detay(AraIslemOutput.builder().stan(response.getStan()).telefonNo(input.getTelefonNo()).build()).build();
         } else {
-            log.warn("kurum: {}, talimat ekle işlemi başarısız, telefon: {}", kurum.name(), input.getTelefonNo());
-            return TalimatOutput.builder().sonuc("01").aciklama("işlem başarısız").detay(response).build();
+            log.warn("kurum: {}, talimat ekle işlemi başarısız, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+            return TalimatOutput.builder().sonuc(false).aciklama("işlem başarısız").build();
         }
 
 
@@ -166,7 +188,7 @@ public class TurkcellClient implements IClient {
 
 
     @Override
-    public TalimatOutput<?> cikar(CikarDTO input) throws Exception {
+    public TalimatOutput<?> cikar(TalimatEntity input) {
 
         logon();
 
@@ -192,28 +214,35 @@ public class TurkcellClient implements IClient {
         request.setCustomerInformation(customerInformation);
 
         Origin originator = new Origin();
-        originator.setBranch("6");
-        originator.setCity(6);
-        originator.setTeller("6");
-        originator.setUser("6");
+        originator.setBranch(input.getSubeId().toString());
+        originator.setCity(input.getMerkezId());
+        originator.setTeller(input.getGiseNo().toString());
+        originator.setUser(input.getKullaniciId().toString());
         request.setOrig(originator);
 
-        BaseOutputResponse response = proxyTurkcell.cancelAutoPaymentByKey(request);
+        BaseOutputResponse response;
+
+        try {
+            response = proxyTurkcell.cancelAutoPaymentByKey(request);
+        } catch (Exception e) {
+            log.warn("kurum: {}, sunucu hatası yakalandı, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
+        }
 
         if(response.getErrMsg().equals("ok")) {
-            log.info("kurum: {}, sunucu hatası yakalandı, telefon: {}", kurum.name(), input.getTelefonNo());
-            return TalimatOutput.builder().sonuc("00").aciklama("Talimat çıkarma işlemi başarılı").build();
+            log.info("kurum: {}, sunucu hatası yakalandı, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+            return TalimatOutput.builder().sonuc(true).aciklama("Talimat çıkarma işlemi başarılı").detay(AraIslemOutput.builder().stan(Long.valueOf(response.getStan())).telefonNo(input.getTelefonNo()).build()).build();
         } else if(response.getErrMsg().equals("RC-NOT-AUTOMATED-PAYMENT-ERR")) {
-            log.warn("kurum: {}, kullanıcının talimatı yok, telefon: {}", kurum.name(), input.getTelefonNo());
-            return TalimatOutput.builder().sonuc("01").aciklama("Kullanıcının talimati yok").build();
+            log.warn("kurum: {}, kullanıcının talimatı yok, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+            return TalimatOutput.builder().sonuc(true).aciklama("Kullanıcının talimati yok").build();
         } else {
-            log.warn("kurum: {}, talimat çıkarma işlemi başarısız, telefon: {}", kurum.name(), input.getTelefonNo());
-            return TalimatOutput.builder().sonuc("01").aciklama("Kurum talimat çıkarma işlemi başarısız").build();
+            log.warn("kurum: {}, talimat çıkarma işlemi başarısız, telefon: {}", Kurum.turkcell.name(), input.getTelefonNo());
+            return TalimatOutput.builder().sonuc(false).aciklama("Kurum talimat çıkarma işlemi başarısız").build();
         }
     }
 
     @Override
-    public TalimatOutput<?> mutabakatKapat(MutabakatKapatRequest input) throws Exception {
+    public TalimatOutput<?> mutabakatKapat(MutabakatKapatRequest input) {
         logon();
 
         ReconciliationRequest request = new ReconciliationRequest();
@@ -251,14 +280,19 @@ public class TurkcellClient implements IClient {
         originator.setUser("6");
         request.setOrig(originator);
 
+        BaseOutputResponse response;
 
-        BaseOutputResponse response = proxyTurkcell.sendReconciliation(request);
+        try {
+            response = proxyTurkcell.sendReconciliation(request);
+        } catch (Exception e) {
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
+        }
 
 
         if(response.getErrMsg().equals("ok")) {
-            return TalimatOutput.builder().sonuc("00").aciklama("Mutabakat işlemi başarılı").build();
+            return TalimatOutput.builder().sonuc(true).aciklama("Mutabakat işlemi başarılı").build();
         } else {
-            return TalimatOutput.builder().sonuc("01").aciklama("Mutabakat işlemi başarısız").build();
+            return TalimatOutput.builder().sonuc(false).aciklama("Mutabakat işlemi başarısız").build();
         }
     }
 

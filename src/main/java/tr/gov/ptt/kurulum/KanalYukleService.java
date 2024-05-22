@@ -1,9 +1,11 @@
 package tr.gov.ptt.kurulum;
 
 import tr.gov.ptt.client.IClient;
-import tr.gov.ptt.kanal.IProcess;
-import tr.gov.ptt.kanal.MobilKanal;
-import tr.gov.ptt.kanal.WebKanal;
+import tr.gov.ptt.enumeration.Kanal;
+import tr.gov.ptt.enumeration.Kurum;
+import tr.gov.ptt.kanal.IChannel;
+import tr.gov.ptt.kanal.IpcKanal;
+import tr.gov.ptt.kanal.PostawebKanal;
 import tr.gov.ptt.dto.Yukle;
 import tr.gov.ptt.service.IService;
 import lombok.Getter;
@@ -11,10 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
-import tr.gov.ptt.client.IClient;
-import tr.gov.ptt.kanal.IProcess;
-import tr.gov.ptt.client.IClient;
-import tr.gov.ptt.kanal.IProcess;
 
 import java.util.*;
 
@@ -25,12 +23,12 @@ public class KanalYukleService {
     private final ApplicationContext applicationContext;
 
     @Getter
-    Map<String, IProcess> mobil = new HashMap<>();
+    Map<String, IChannel> ipc = new HashMap<>();
 
     @Getter
-    Map<String, IProcess> web = new HashMap<>();
+    Map<String, IChannel> web = new HashMap<>();
 
-    private final Map<String, Map<String, IProcess>> kanallar = new HashMap<>();
+    private final Map<String, Map<String, IChannel>> kanallar = new HashMap<>();
 
     @Autowired
     public KanalYukleService(Map<String, IClient> clients, Map<String, IService> services, ApplicationContext applicationContext) {
@@ -46,32 +44,32 @@ public class KanalYukleService {
 
         yukleList.forEach(tek -> {
             web.put(tek.getAd(), createWeb(tek.getClient(),tek.getService()));
-            mobil.put(tek.getAd(), createMobil(tek.getClient(),tek.getService()));
+            ipc.put(tek.getAd(), createIpc(tek.getClient(),tek.getService()));
         });
 
 
-        kanallar.put("web", web);
-        kanallar.put("mobil", mobil);
+        kanallar.put("POSTAWEB", web);
+        kanallar.put("IPC", ipc);
     }
 
-    private WebKanal createWeb(IClient client, IService servis) {
-        WebKanal kanal = (WebKanal) applicationContext.getBean("webKanal");
+    private PostawebKanal createWeb(IClient client, IService servis) {
+        PostawebKanal kanal = (PostawebKanal) applicationContext.getBean("postawebKanal");
         kanal.setClient(client);
         kanal.setService(servis);
         return kanal;
     }
 
-    private MobilKanal createMobil(IClient client, IService servis) {
-        MobilKanal kanal = (MobilKanal) applicationContext.getBean("mobilKanal");
+    private IpcKanal createIpc(IClient client, IService servis) {
+        IpcKanal kanal = (IpcKanal) applicationContext.getBean("ipcKanal");
         kanal.setClient(client);
         kanal.setService(servis);
         return kanal;
     }
 
 
-    public IProcess getKanal(String kanalAdi, String kurum) {
+    public IChannel getKanal(Kanal kanal, Kurum kurum) {
 
-        return kanallar.get(kanalAdi).get(Kurum.valueOf(kurum).name());
+        return kanallar.get(kanal.getAciklama()).get(kurum.name());
 
     }
 

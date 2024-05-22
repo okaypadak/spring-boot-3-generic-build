@@ -1,21 +1,13 @@
 package tr.gov.ptt.service;
 
-import tr.gov.ptt.dto.CikarDTO;
-import tr.gov.ptt.dto.CikarGuncelleDTO;
-import tr.gov.ptt.dto.EkleDTO;
+import tr.gov.ptt.dto.Kullanici;
 import tr.gov.ptt.dto.MutabakatDTO;
-import tr.gov.ptt.dto.request.TalimatCikarRequest;
-import tr.gov.ptt.dto.request.GenelEkleRequest;
+import tr.gov.ptt.dto.request.TalimatEkleRequest;
+import tr.gov.ptt.entity.TalimatEntity;
 
 public interface IService {
 
-    void kaydet (GenelEkleRequest veri);
-
-    void guncelleEkle(EkleDTO veri);
-
-    void guncelleCikar(CikarGuncelleDTO veri);
-
-    CikarDTO getir(TalimatCikarRequest veri) throws Exception;
+    TalimatEntity kaydet (TalimatEkleRequest veri);
 
     MutabakatDTO mutabakatSorgula(Integer tarih);
 }

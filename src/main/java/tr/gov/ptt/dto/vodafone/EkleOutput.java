@@ -9,18 +9,15 @@ import java.time.LocalDateTime;
 public class EkleOutput {
     private String responseCode;
     private String responseCodeDesc;
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime requestTimestamp;
+    private String requestTimestamp;
     private String correlationId;
     private int companyId;
     private int institutionId;
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime transactionDate;
+    private String transactionDate;
     private int stan;
     private String msisdn;
     private String customerCode;
     private String customerReferenceType;
     private OriginatorInfo originatorInfo;
-    @JsonFormat(pattern = "yyyy-MM-dd")
-    private LocalDateTime acceptanceDate;
+    private String acceptanceDate;
 }

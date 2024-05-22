@@ -1,15 +1,15 @@
 package tr.gov.ptt.dto.response;
 
-import tr.gov.ptt.dto.tandem.TandemDetayResponse;
 import lombok.Builder;
 import lombok.Data;
+import tr.gov.ptt.dto.tandem.PCHListResponse;
 
 @Data
 @Builder
 public class TalimatGenelResponse<T> {
-    private String sonuc;
+    private Boolean sonuc;
     private String aciklama;
-    private TandemDetayResponse tandemVeri;
+    private PCHListResponse tandemVeri;
     private T detay;
 
 }

@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class TalimatOutput<T> {
 
-	private String sonuc;
+	private Boolean sonuc;
 	private String aciklama;
 	private T detay;
 

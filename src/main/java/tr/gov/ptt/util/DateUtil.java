@@ -5,6 +5,10 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 public final class DateUtil {
 
@@ -24,13 +28,6 @@ public final class DateUtil {
         return new SimpleDateFormat(pattern).format(date);
     }
 
-    private static LocalDateTime convertIntegerToLocalDate(Integer date, String pattern) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
-        return LocalDateTime.parse(String.valueOf(date), formatter);
-    }
-
-    public static LocalDateTime yyyyMMdd2LocalDateTime(Integer tarih) { return convertIntegerToLocalDate(tarih,"yyyyMMdd");}
-
     public static String yyyyMMddTHHmmss2String() {
         return convertDateToText(new Date(),"yyyy-MM-dd'T'HH:mm:ss");
     }
@@ -47,6 +44,20 @@ public final class DateUtil {
 
     public static String MMddHHmmss2String() {
         return convertDateToText(new Date(),"MMddHHmmss");
+    }
+
+    public static LocalDateTime yyyyMMdd2LocalDateTime(Integer tarih) {
+        return convertIntegerToLocalDate(tarih, "yyyyMMdd");
+    }
+
+    private static LocalDateTime convertIntegerToLocalDate(Integer tarih, String format) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+        try {
+            LocalDate date = LocalDate.parse(tarih.toString(), formatter);
+            return date.atStartOfDay();
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Text '" + tarih + "' could not be parsed: " + e.getMessage());
+        }
     }
 
 }

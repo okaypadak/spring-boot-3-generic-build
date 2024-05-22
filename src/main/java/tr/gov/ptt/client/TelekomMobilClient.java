@@ -1,10 +1,13 @@
 package tr.gov.ptt.client;
 
-import tr.gov.ptt.dto.CikarDTO;
-import tr.gov.ptt.dto.CikarGuncelleDTO;
+import tr.gov.ptt.dto.AraIslemOutput;
+import tr.gov.ptt.dto.Kullanici;
 import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.*;
+import tr.gov.ptt.dto.request.TalimatEkleRequest;
 import tr.gov.ptt.dto.response.TelekomSorguResponse;
+import tr.gov.ptt.entity.TalimatEntity;
+import tr.gov.ptt.exception.ClientException;
 import tr.gov.ptt.util.DateUtil;
 import tr.gov.ptt.ws.client.telekom.mutabakat.model.mutabakat.MutabakatResponse;
 import tr.gov.ptt.ws.client.telekom.mutabakat.ws.MutabakatWSBindingStub;
@@ -13,25 +16,13 @@ import tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.*;
 import tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.TalimatCikarRequest;
 import tr.gov.ptt.ws.client.telekom.talimatMobil.ws.TalimatWSBindingStub;
 import tr.gov.ptt.ws.client.telekom.talimatMobil.ws.TalimatWSLocator;
-import tr.gov.ptt.kurulum.Kurum;
+import tr.gov.ptt.enumeration.Kurum;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import tr.gov.ptt.dto.CikarDTO;
-import tr.gov.ptt.dto.CikarGuncelleDTO;
 import tr.gov.ptt.dto.request.MutabakatKapatRequest;
-import tr.gov.ptt.dto.response.TelekomSorguResponse;
-import tr.gov.ptt.kurulum.Kurum;
-import tr.gov.ptt.util.DateUtil;
 import tr.gov.ptt.ws.client.telekom.mutabakat.model.mutabakat.MutabakatBilgi;
 import tr.gov.ptt.ws.client.telekom.mutabakat.model.mutabakat.MutabakatRequest;
 import tr.gov.ptt.ws.client.telekom.mutabakat.model.ortak.IslemYapan;
-import tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.*;
-import tr.gov.ptt.dto.CikarDTO;
-import tr.gov.ptt.dto.CikarGuncelleDTO;
-import tr.gov.ptt.dto.request.MutabakatKapatRequest;
-import tr.gov.ptt.dto.response.TelekomSorguResponse;
-import tr.gov.ptt.kurulum.Kurum;
-import tr.gov.ptt.util.DateUtil;
 
 import java.net.URL;
 import java.text.DateFormat;
@@ -55,51 +46,26 @@ public class TelekomMobilClient implements IClient {
     private static int islemKaynagiIptal = 30;
     private static int erisimTipi = 1;
 
-    private int sehirKodu = 6;
-    private String subeKodu = "1";
-    private String giseKodu = "45";
-    private String kullaniciKodu = "1";
     private Integer kurumKodu = 0;
 
     private static int mesajTipiMutabakat = 520;
     private static int islemKoduMutabakat = 60;
     private static int islemKaynagi = 00;
-
-    private Kurum kurum;
+    
 
     TalimatWSBindingStub proxyTalimatMobil = null;
     MutabakatWSBindingStub proxyMutabakat = null;
 
 
-    TalimatWSBindingStub getMobilTalimatAuthorizationStub() throws Exception {
-
-        kurumKodu = 2762;
-        sirketKodu = 555;
-
-        proxyTalimatMobil = (TalimatWSBindingStub) new TalimatWSLocator().getTalimatWSPort(new URL(kurum.getUrl() + "/TalimatWSPort"));
-        proxyTalimatMobil.setUsername(kurum.getKullaniciAdi());
-        proxyTalimatMobil.setPassword(kurum.getSifre());
-
-        return proxyTalimatMobil;
-    }
-
-    MutabakatWSBindingStub getMutAuthorizationStub() throws Exception {
-        proxyMutabakat = (MutabakatWSBindingStub) new MutabakatWSLocator().getMutabakatWSPort(new URL(kurum.getUrl() + "/MutabakatWSPort"));
-        proxyMutabakat.setUsername(kurum.getKullaniciAdi());
-        proxyMutabakat.setPassword(kurum.getSifre());
-
-        return proxyMutabakat;
-    }
-
     @Override
-    public void setKurum(String kurum) {
-        this.kurum = Kurum.valueOf(kurum);
-    }
+    public TalimatOutput<TelekomSorguResponse> sorgula(TalimatSorgulaRequest input) {
 
-    @Override
-    public TalimatOutput<TelekomSorguResponse> sorgula(TalimatSorgulaRequest input) throws Exception {
+        try {
+            proxyTalimatMobil = getMobilTalimatAuthorizationStub();
+        } catch (Exception e) {
+            //TODO
+        }
 
-        proxyTalimatMobil = getMobilTalimatAuthorizationStub();
 
         int islemTarihi = DateUtil.yyyyMMdd2Integer();
         int islemSaati = DateUtil.HHmmss2Integer();
@@ -120,11 +86,13 @@ public class TelekomMobilClient implements IClient {
         sorgu.setIslemTarihi(islemTarihi);
         sorgu.setIslemSaati(islemSaati);
 
+        Kullanici kullanici = input.getKullanici();
+
         tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.IslemYapan islemYapan = new tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.IslemYapan();
-        islemYapan.setGiseKodu(giseKodu);
-        islemYapan.setSubeKodu(subeKodu);
-        islemYapan.setSehirKodu(sehirKodu);
-        islemYapan.setKullaniciKodu(kullaniciKodu);
+        islemYapan.setGiseKodu(kullanici.getGiseNo().toString());
+        islemYapan.setSubeKodu(kullanici.getSubeId().toString());
+        islemYapan.setSehirKodu(kullanici.getMerkezId());
+        islemYapan.setKullaniciKodu(kullanici.getKullaniciId().toString());
         sorgu.setIslemYapan(islemYapan);
 
         ErisimBilgi erisimBilgi = new ErisimBilgi();
@@ -134,7 +102,14 @@ public class TelekomMobilClient implements IClient {
         sorgu.setErisimBilgi(erisimBilgi);
         sorgu.setTalimatTipi(2L);
 
-        TalimatBilgiSorgulamaResponse sonuc = proxyTalimatMobil.talimatSorgulama(sorgu);
+        TalimatBilgiSorgulamaResponse sonuc;
+
+        try {
+            sonuc = proxyTalimatMobil.talimatSorgulama(sorgu);
+        } catch (Exception e) {
+            log.warn("kurum: {}, sunucu hatası yakalandı, telefon: {}", Kurum.telekomSabit.name(), input.getTelefonNo());
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
+        }
 
         if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("00")) {
 
@@ -149,41 +124,31 @@ public class TelekomMobilClient implements IClient {
                 Long hesapId = hesap[0].getHesapId();
                 String adSoyad = hesap[0].getAdsoyadUnvan();
 
-                log.info("kurum: {}, talimat yapılabilir, telefon: {}", kurum.name(), input.getTelefonNo());
-                output.setSonuc("00");
+                log.info("kurum: {}, talimat yapılabilir, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+                output.setSonuc(true);
                 output.setAciklama("Talimat yapılabilir");
-
-
 
                 output.setDetay(TelekomSorguResponse.builder().adSoyad(adSoyad).hesapId(hesapId.toString()).build());
             }
 
-            else if (talimatSonuc.equals("42")) {
-
-                log.info("kurum: {}, telefon numarası hatalı, telefon: {}", kurum.name(), input.getTelefonNo());
-                output.setSonuc("42");
-                output.setAciklama("Telefon numarası hatalı");
-
-            }
-
             else if (talimatSonuc.equals("5C")) {
 
-                log.info("kurum: {}, hesabın bu kurumdan talimatı var, telefon: {}", kurum.name(), input.getTelefonNo());
-                output.setSonuc("5C");
+                log.info("kurum: {}, hesabın bu kurumdan talimatı var, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+                output.setSonuc(false);
                 output.setAciklama("Hesabın bu kurumdan talimatı var.");
             }
 
             else if (talimatSonuc.equals("5D")) {
 
-                log.info("kurum: {}, hesabın başka kurumdan talimatı var, telefon: {}", kurum.name(), input.getTelefonNo());
-                output.setSonuc("5D");
+                log.info("kurum: {}, hesabın başka kurumdan talimatı var, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+                output.setSonuc(false);
                 output.setAciklama("Hesabın başka kurumdan talimatı var.");
             }
 
             else {
 
-                log.info("kurum: {}, sorgu başarısız, telefon: {}", kurum.name(), input.getTelefonNo());
-                output.setSonuc("DD");
+                log.info("kurum: {}, sorgu başarısız, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+                output.setSonuc(false);
                 output.setAciklama("Diğer hata, sorgu başarısız");
             }
 
@@ -191,15 +156,15 @@ public class TelekomMobilClient implements IClient {
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("58")) {
 
-            log.info("kurum: {}, hesabın kaydı bulunamadı, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("58");
+            log.info("kurum: {}, hesabın kaydı bulunamadı, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Hesap kaydı bulunamadı.");
         }
 
         else {
 
-            log.warn("kurum: {}, sorgu başarısız, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("DD");
+            log.warn("kurum: {}, sorgu başarısız, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Diğer hata, sorgu başarısız");
         }
 
@@ -207,14 +172,14 @@ public class TelekomMobilClient implements IClient {
     }
 
     @Override
-    public TalimatOutput ekle(GenelEkleRequest input) {
+    public TalimatOutput ekle(TalimatEkleRequest input) {
 
         int islemTarihi = DateUtil.yyyyMMdd2Integer();
         int islemSaati = DateUtil.HHmmss2Integer();
 
         int stan = Integer.parseInt(this.generateStan());
 
-        TalimatEkleRequest sorgu = new TalimatEkleRequest();
+        tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.TalimatEkleRequest sorgu = new tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.TalimatEkleRequest();
         TalimatEkleResponse sonuc;
 
         TalimatOutput output = new TalimatOutput();
@@ -230,10 +195,13 @@ public class TelekomMobilClient implements IClient {
         sorgu.setIslemSaati(islemSaati);
 
         tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.IslemYapan islemYapan = new tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.IslemYapan();
-        islemYapan.setGiseKodu(giseKodu);
-        islemYapan.setSubeKodu(subeKodu);
-        islemYapan.setSehirKodu(sehirKodu);
-        islemYapan.setKullaniciKodu(kullaniciKodu);
+
+        Kullanici kullanici = input.getKullanici();
+
+        islemYapan.setGiseKodu(kullanici.getGiseNo().toString());
+        islemYapan.setSubeKodu(kullanici.getSubeId().toString());
+        islemYapan.setSehirKodu(kullanici.getMerkezId());
+        islemYapan.setKullaniciKodu(kullanici.getKullaniciId().toString());
         sorgu.setIslemYapan(islemYapan);
 
         sorgu.setHesapId(input.getHesapId());
@@ -250,73 +218,58 @@ public class TelekomMobilClient implements IClient {
 
 
         try {
-
             sonuc = proxyTalimatMobil.talimatEkle(sorgu);
-        } catch (java.io.IOException e) {
-
-            log.warn("kurum: {}, sunucu hatası yakalandı, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("DD");
-            output.setAciklama("Sunucu hatası yakalandı");
-
-            return output;
+        } catch (Exception e) {
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
         }
 
         if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("00")) {
 
-            log.info("kurum: {}, talimat işlemi başarılı, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("00");
-            output.setAciklama("Talimat yapıldı");
+            log.info("kurum: {}, talimat işlemi başarılı, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            return TalimatOutput.builder().sonuc(true).aciklama("Talimat ekle işlemi başarılı").detay(AraIslemOutput.builder().stan(Long.valueOf(sonuc.getStan())).telefonNo(input.getTelefonNo()).build()).build();
 
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("85")) {
 
-            log.info("kurum: {}, bildirim mesajı daha önce gönderildi ve işlem yapıldı, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("85");
+            log.info("kurum: {}, bildirim mesajı daha önce gönderildi ve işlem yapıldı, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Bildirim mesajı daha önce gönderildi ve işlem yapıldı.");
-
-        }
-
-        else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("42")) {
-
-            log.info("kurum: {}, telefon numarası hatalı, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("42");
-            output.setAciklama("Telefon numarası hatalı");
 
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("5C")) {
 
-            log.info("kurum: {}, hesabın bu kurumdan talimatı var, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("5C");
+            log.info("kurum: {}, hesabın bu kurumdan talimatı var, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Hesabın bu kurumdan talimatı var.");
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("5D")) {
 
-            log.info("kurum: {}, Hesabın başka kurumdan talimatı var, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("5D");
+            log.info("kurum: {}, Hesabın başka kurumdan talimatı var, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Hesabın başka kurumdan talimatı var.");
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("5E")) {
 
-            log.info("kurum: {}, Hesabın bu kurumdan talimatı yok, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("5E");
+            log.info("kurum: {}, Hesabın bu kurumdan talimatı yok, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Hesabın bu kurumdan talimatı yok.");
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("5F")) {
 
-            log.info("kurum: {}, hesabın talimatı yok, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("5F");
+            log.info("kurum: {}, hesabın talimatı yok, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Hesabın talimatı yok.");
         }
 
         else {
 
-            log.warn("kurum: {}, sorgu başarısız, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("DD");
+            log.warn("kurum: {}, sorgu başarısız, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Diğer hata, sorgu başarısız");
         }
 
@@ -324,9 +277,9 @@ public class TelekomMobilClient implements IClient {
     }
 
     @Override
-    public TalimatOutput<?> cikar(CikarDTO input) {
+    public TalimatOutput<?> cikar(TalimatEntity input) {
 
-        TalimatOutput<CikarGuncelleDTO> output = new TalimatOutput<CikarGuncelleDTO>();
+        TalimatOutput<AraIslemOutput> output = new TalimatOutput<AraIslemOutput>();
 
         TalimatCikarRequest sorgu = new TalimatCikarRequest();
         int stan = Integer.parseInt(this.generateStan());
@@ -346,10 +299,10 @@ public class TelekomMobilClient implements IClient {
 
         tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.IslemYapan islemYapan = new tr.gov.ptt.ws.client.telekom.talimatMobil.ortak.IslemYapan();
 
-        islemYapan.setGiseKodu(giseKodu);
-        islemYapan.setSubeKodu(subeKodu);
-        islemYapan.setSehirKodu(sehirKodu);
-        islemYapan.setKullaniciKodu(kullaniciKodu);
+        islemYapan.setGiseKodu(input.getGiseNo().toString());
+        islemYapan.setSubeKodu(input.getSubeId().toString());
+        islemYapan.setSehirKodu(input.getMerkezId());
+        islemYapan.setKullaniciKodu(input.getKullaniciId().toString());
         sorgu.setIslemYapan(islemYapan);
 
         sorgu.setHesapId(input.getHesapId());
@@ -360,72 +313,67 @@ public class TelekomMobilClient implements IClient {
 
         try {
             sonuc = proxyTalimatMobil.talimatCikar(sorgu);
-
-        } catch (java.io.IOException e) {
-
-            log.info("kurum: {},, sunucu hatası yakalandı", kurum.name());
-            output.setSonuc("DD");
-            output.setAciklama("Sunucu hatası yakalandı");
-
-            return output;
+        } catch (Exception e) {
+            log.warn("kurum: {}, sunucu hatası yakalandı, telefon: {}", Kurum.telekomSabit.name(), input.getTelefonNo());
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
         }
 
         if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("00")) {
 
-            log.info("kurum: {}, talimat çıkar işlemi işlemi başarılı, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("00");
+            log.info("kurum: {}, talimat çıkar işlemi işlemi başarılı, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(true);
             output.setAciklama("Talimat iptal işlemi başarılı.");
-            output.setDetay(CikarGuncelleDTO.builder().stan(stan).telefonNo(input.getTelefonNo()).build());
+            output.setDetay(AraIslemOutput.builder().stan(Long.valueOf(stan)).telefonNo(input.getTelefonNo()).build());
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("85")) {
 
-            log.info("kurum: {}, bildirim mesajı daha önce gönderildi ve işlem yapıldı, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("85");
+            log.info("kurum: {}, bildirim mesajı daha önce gönderildi ve işlem yapıldı, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Bildirim mesajı daha önce gönderildi ve işlem yapıldı.");
 
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("42")) {
 
-            log.info("kurum: {}, telefon numarası hatalı, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("42");
+            log.info("kurum: {}, telefon numarası hatalı, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Telefon numarası hatalı");
 
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("5C")) {
 
-            log.info("kurum: {}, hesabın bu kurumdan talimatı var, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("5C");
+            log.info("kurum: {}, hesabın bu kurumdan talimatı var, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Hesabın bu kurumdan talimatı var.");
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("5D")) {
 
-            log.info("kurum: {}, hesabın başka kurumdan talimatı var, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("5D");
+            log.info("kurum: {}, hesabın başka kurumdan talimatı var, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Hesabın başka kurumdan talimatı var.");
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("5E")) {
 
-            log.info("kurum: {}, hesabın bu kurumdan talimatı yok, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("5E");
+            log.info("kurum: {}, hesabın bu kurumdan talimatı yok, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Hesabın bu kurumdan talimatı yok.");
         }
 
         else if (sonuc.getOzetCevapMesaj().getIslemSonucKodu().equals("5F")) {
 
-            log.info("kurum: {}, hesabın talimatı yok, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("5F");
+            log.info("kurum: {}, hesabın talimatı yok, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Hesabın talimatı yok.");
         }
 
         else {
 
-            log.warn("kurum: {}, sorgu başarısız, telefon: {}", kurum.name(), input.getTelefonNo());
-            output.setSonuc("DD");
+            log.warn("kurum: {}, sorgu başarısız, telefon: {}", Kurum.telekomMobil.name(), input.getTelefonNo());
+            output.setSonuc(false);
             output.setAciklama("Diğer hata, sorgu başarısız");
         }
 
@@ -433,7 +381,7 @@ public class TelekomMobilClient implements IClient {
     }
 
     @Override
-    public TalimatOutput<?> mutabakatKapat(MutabakatKapatRequest input) throws Exception {
+    public TalimatOutput<?> mutabakatKapat(MutabakatKapatRequest input) {
 
         proxyMutabakat = getMutAuthorizationStub();
 
@@ -493,19 +441,29 @@ public class TelekomMobilClient implements IClient {
 
         sorgu.setMutabakatTarihi(Integer.parseInt(input.getTarih()));
 
-        MutabakatResponse mutakabatTamamla = proxyMutabakat.mutabakatBildir(sorgu);
+        MutabakatResponse mutakabatTamamla;
+
+        try {
+            mutakabatTamamla = proxyMutabakat.mutabakatBildir(sorgu);
+        } catch (Exception e) {
+            return TalimatOutput.<MutabakatResponse>builder()
+                    .sonuc(false)
+                    .aciklama("Mutabakat hatalı!")
+                    .detay(null)
+                    .build();
+        }
 
         if (mutakabatTamamla.getOzetCevapMesaj().getIslemSonucKodu().equals("00")) {
 
             return TalimatOutput.<MutabakatResponse>builder()
-                    .sonuc("00")
+                    .sonuc(true)
                     .aciklama("Mutabakat başarılı tamamlandı")
                     .detay(mutakabatTamamla)
                     .build();
 
         } else {
             return TalimatOutput.<MutabakatResponse>builder()
-                    .sonuc("01")
+                    .sonuc(false)
                     .aciklama("Mutabakat hatalı!")
                     .detay(null)
                     .build();
@@ -514,7 +472,7 @@ public class TelekomMobilClient implements IClient {
 
 
 
-    public String generateStan() {
+    private String generateStan() {
         DateFormat saat = new SimpleDateFormat("HH");
         Date date = new Date();
         String saatstring = saat.format(date);
@@ -542,6 +500,37 @@ public class TelekomMobilClient implements IClient {
         }
 
         return stanstring;
+
+    }
+
+    private TalimatWSBindingStub getMobilTalimatAuthorizationStub() {
+
+        try {
+            kurumKodu = 2762;
+            sirketKodu = 555;
+
+            proxyTalimatMobil = (TalimatWSBindingStub) new TalimatWSLocator().getTalimatWSPort(new URL(Kurum.telekomMobil.getUrl() + "/TalimatWSPort"));
+            proxyTalimatMobil.setUsername(Kurum.telekomMobil.getKullaniciAdi());
+            proxyTalimatMobil.setPassword(Kurum.telekomMobil.getSifre());
+
+            return proxyTalimatMobil;
+        } catch (Exception e ) {
+            throw new ClientException("Stub oluşturulamadı");
+        }
+    }
+
+    private MutabakatWSBindingStub getMutAuthorizationStub(){
+
+        try {
+            proxyMutabakat = (MutabakatWSBindingStub) new MutabakatWSLocator().getMutabakatWSPort(new URL(Kurum.telekomMobil.getUrl() + "/MutabakatWSPort"));
+            proxyMutabakat.setUsername(Kurum.telekomMobil.getKullaniciAdi());
+            proxyMutabakat.setPassword(Kurum.telekomMobil.getSifre());
+
+            return proxyMutabakat;
+        } catch (Exception e ) {
+            throw new ClientException("Stub oluşturulamadı");
+        }
+
 
     }
 

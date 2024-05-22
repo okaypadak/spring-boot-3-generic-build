@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class EkleDTO {
-    private Integer stan;
+public class AraIslemOutput {
+    private Long stan;
     private String telefonNo;
 }

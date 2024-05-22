@@ -1,26 +1,28 @@
 package tr.gov.ptt.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import tr.gov.ptt.dto.AccessToken;
-import tr.gov.ptt.dto.CikarDTO;
+import tr.gov.ptt.dto.AraIslemOutput;
+import tr.gov.ptt.dto.CachedToken;
+import tr.gov.ptt.dto.Kullanici;
 import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.MutabakatKapatRequest;
-import tr.gov.ptt.dto.request.GenelEkleRequest;
+import tr.gov.ptt.dto.request.TalimatEkleRequest;
 import tr.gov.ptt.dto.request.TalimatSorgulaRequest;
 import tr.gov.ptt.dto.response.VodafoneResponse;
 import tr.gov.ptt.dto.vodafone.*;
-import tr.gov.ptt.dto.vodafone.*;
-import tr.gov.ptt.dto.vodafone.*;
-import tr.gov.ptt.kurulum.Kurum;
+import tr.gov.ptt.entity.TalimatEntity;
+import tr.gov.ptt.enumeration.Kurum;
+import tr.gov.ptt.exception.ClientException;
 import tr.gov.ptt.util.DateUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.client.RestClientException;
+
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
@@ -28,10 +30,13 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 @Component
 @Slf4j
 public class VodafoneClient implements IClient {
+
 
     private Kurum kurum;
     private final int InstitutionId 		= 1762;
@@ -42,13 +47,14 @@ public class VodafoneClient implements IClient {
     @Autowired
     ObjectMapper objectMapper;
 
-    @Override
-    public void setKurum(String kurum) {
-        this.kurum = Kurum.valueOf(kurum);
-    }
+    private static final String TOKEN_URL = "https://pttwsint.ptt.gov.tr/pttbank/vodafone/oauth/token";
+    private static final String CLIENT_ID = "Ptt";
+    private static final ConcurrentHashMap<String, CachedToken> tokenCache = new ConcurrentHashMap<>();
+
+
 
     @Override
-    public TalimatOutput<?> sorgula(TalimatSorgulaRequest input) throws Exception {
+    public TalimatOutput<?> sorgula(TalimatSorgulaRequest input) {
 
         SorguInput requestBody = new SorguInput();
         requestBody.setCompanyId(542);
@@ -60,10 +66,11 @@ public class VodafoneClient implements IClient {
         requestBody.setCustomerReferenceType("MSISDN");
         requestBody.setDescription("Otomatik Ödeme Talimat Sorgulama");
         OriginatorInfo originatorInfo = new OriginatorInfo();
-        originatorInfo.setCity(6);
-        originatorInfo.setBranch("6");
-        originatorInfo.setTeller("6");
-        originatorInfo.setUser("1");
+        Kullanici kullanici = input.getKullanici();
+        originatorInfo.setCity(kullanici.getMerkezId());
+        originatorInfo.setBranch(kullanici.getSubeId().toString());
+        originatorInfo.setTeller(kullanici.getGiseNo().toString());
+        originatorInfo.setUser(kullanici.getKullaniciId().toString());
         requestBody.setOriginatorInfo(originatorInfo);
         requestBody.setNameSurname(input.getAdSoyad());
 
@@ -72,10 +79,16 @@ public class VodafoneClient implements IClient {
         ResponseEntity<SorguOutput> response = null;
 
         try {
-            response = restTemplate.exchange(kurum.getUrl()+"/automatedPostpaid/", HttpMethod.POST, requestEntity, SorguOutput.class);
+            response = restTemplate.exchange(Kurum.vodafone.getUrl()+"/automatedPostpaid/", HttpMethod.POST, requestEntity, SorguOutput.class);
         } catch (HttpClientErrorException e) {
 
-            VodafoneResponse responseOther = objectMapper.readValue(e.getResponseBodyAsString(), VodafoneResponse.class);
+            VodafoneResponse responseOther;
+
+            try {
+                responseOther = objectMapper.readValue(e.getResponseBodyAsString(), VodafoneResponse.class);
+            }catch (Exception mapperEx) {
+                throw new RuntimeException(mapperEx.getMessage());
+            }
 
             log.warn("kurum: {}, telefon: {}, HTTP Client Hatası: {}", kurum, input.getTelefonNo(), e.getMessage());
 
@@ -84,23 +97,29 @@ public class VodafoneClient implements IClient {
                 switch (responseOther.getResponseCode()) {
                     case "ORAP-1003" -> {
                         return TalimatOutput.<VodafoneResponse>builder()
-                                .sonuc("00")
+                                .sonuc(true)
                                 .aciklama("Talimat yapılabilir")
-                                .detay(null)
                                 .build();
                     }
+
+                    case "ORAP-1005" -> {
+                        return TalimatOutput.<VodafoneResponse>builder()
+                                .sonuc(false)
+                                .aciklama("Aynı veya farklı kurumdan talimat girişi mevcut")
+                                .build();
+                    }
+
                     case "ORAP-1002" -> {
                         return TalimatOutput.<VodafoneResponse>builder()
-                                .sonuc("01")
+                                .sonuc(false)
                                 .aciklama("Farklı kurumdan talimat girişi mevcut")
-                                .detay(null)
                                 .build();
                     }
+
                     case "ORAP-1001" -> {
                         return TalimatOutput.<VodafoneResponse>builder()
-                                .sonuc("01")
+                                .sonuc(false)
                                 .aciklama("Aynı kurumdan talimat girişi mevcut")
-                                .detay(null)
                                 .build();
                     }
                 }
@@ -112,17 +131,17 @@ public class VodafoneClient implements IClient {
         assert response != null;
         if (Objects.requireNonNull(response.getBody()).getResponseCode().equals("0000")) {
 
-            log.info("kurum: {}, talimat yapılabilir, telefon: {}", kurum.name(), input.getTelefonNo());
+            log.info("kurum: {}, talimat yapılabilir, telefon: {}", Kurum.vodafone.name(), input.getTelefonNo());
 
             return TalimatOutput.<SorguOutput>builder()
-                    .sonuc("00")
+                    .sonuc(true)
                     .aciklama("Aynı kurumdan talimat girişi mevcut")
                     .detay(null)
                     .build();
 
         } else {
             return TalimatOutput.<SorguOutput>builder()
-                    .sonuc("01")
+                    .sonuc(false)
                     .aciklama("Talimat sorgu hatalı!")
                     .detay(null)
                     .build();
@@ -130,7 +149,7 @@ public class VodafoneClient implements IClient {
     }
 
     @Override
-    public TalimatOutput<?> ekle(GenelEkleRequest input) {
+    public TalimatOutput<?> ekle(TalimatEkleRequest input) {
 
         EkleInput requestBody = new EkleInput();
         requestBody.setCompanyId(542);
@@ -142,60 +161,84 @@ public class VodafoneClient implements IClient {
         requestBody.setCustomerReferenceType("MSISDN");
         requestBody.setDescription("Otomatik Ödeme Talimatı");
         OriginatorInfo originatorInfo = new OriginatorInfo();
-        originatorInfo.setCity(6);
-        originatorInfo.setBranch("6");
-        originatorInfo.setTeller("6");
-        originatorInfo.setUser("1");
+        Kullanici kullanici = input.getKullanici();
+        originatorInfo.setCity(kullanici.getMerkezId());
+        originatorInfo.setBranch(kullanici.getSubeId().toString());
+        originatorInfo.setTeller(kullanici.getGiseNo().toString());
+        originatorInfo.setUser(kullanici.getKullaniciId().toString());
         requestBody.setOriginatorInfo(originatorInfo);
         requestBody.setAcceptanceDate(LocalDateTime.now());
         requestBody.setNameSurname(input.getAdSoyad());
 
-
-        HttpEntity<EkleInput> requestEntity = new HttpEntity<>(requestBody);
-
-
+        HttpEntity<EkleInput> requestEntity = new HttpEntity<>(requestBody,getToken());
         ResponseEntity<EkleOutput> response = null;
 
         try {
-            response = restTemplate.exchange(kurum.getUrl()+"/automatedPostpaid/create", HttpMethod.POST, requestEntity, EkleOutput.class);
-            // İşlemler devam eder...
+            response = restTemplate.exchange(Kurum.vodafone.getUrl()+"/automatedPostpaid/create", HttpMethod.POST, requestEntity, EkleOutput.class);
         } catch (HttpClientErrorException e) {
-            // HTTP isteğiyle ilgili istisnaları işle
-            log.warn("kurum: {}, telefon: {}, HTTP Client Hatası: {}", kurum, input.getTelefonNo(), e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        } catch (HttpServerErrorException e) {
-            // Sunucu tarafındaki HTTP hatalarını işle
-            log.warn("kurum: {}, telefon: {}, HTTP Sunucu Hatası: {}", kurum, input.getTelefonNo(), e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        } catch (RestClientException e) {
-            // Genel Rest istisnalarını işle
-            log.warn("kurum: {}, telefon: {}, Rest Hatası: {}", kurum, input.getTelefonNo(), e.getMessage());
-            throw new RuntimeException(e.getMessage());
+
+            VodafoneResponse responseOther;
+
+            try {
+                responseOther = objectMapper.readValue(e.getResponseBodyAsString(), VodafoneResponse.class);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex.getMessage());
+            }
+
+            if (e.getStatusCode().equals(HttpStatus.BAD_REQUEST)) {
+
+                switch (responseOther.getResponseCode()) {
+
+                    case "ORAP-1005" -> {
+                        return TalimatOutput.<VodafoneResponse>builder()
+                                .sonuc(false)
+                                .aciklama("Aynı veya farklı kurumdan talimat girişi mevcut")
+                                .build();
+                    }
+
+                    case "ORAP-1002" -> {
+                        return TalimatOutput.<VodafoneResponse>builder()
+                                .sonuc(false)
+                                .aciklama("Farklı kurumdan talimat girişi mevcut")
+                                .build();
+                    }
+
+                    case "ORAP-1001" -> {
+                        return TalimatOutput.<VodafoneResponse>builder()
+                                .sonuc(false)
+                                .aciklama("Aynı kurumdan talimat girişi mevcut")
+                                .build();
+                    }
+
+                    default -> {
+                        return TalimatOutput.<VodafoneResponse>builder()
+                                .sonuc(false)
+                                .aciklama("Bilinmeyen hata")
+                                .build();
+                    }
+                }
+
+            }
         } catch (Exception e) {
-            // Diğer tüm istisnaları işle
-            log.warn("kurum: {}, telefon: {}, Bilinmeyen Hata: {}", kurum, input.getTelefonNo(), e.getMessage());
-            throw new RuntimeException(e.getMessage());
+            log.warn("kurum: {}, sunucu hatası yakalandı, telefon: {}", Kurum.vodafone.name(), input.getTelefonNo());
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
         }
 
         if (Objects.requireNonNull(response.getBody()).getResponseCode().equals("0000")) {
 
-            return TalimatOutput.<EkleOutput>builder()
-                    .sonuc("00")
-                    .aciklama("Talimat ekle başarılı")
-                    .detay(response.getBody())
-                    .build();
+            return TalimatOutput.builder().sonuc(true).aciklama("Talimat ekle işlemi başarılı").detay(AraIslemOutput.builder().stan(null).telefonNo(input.getTelefonNo()).build()).build();
 
         } else {
             return TalimatOutput.<EkleOutput>builder()
-                    .sonuc("01")
+                    .sonuc(false)
                     .aciklama("Talimat ekle hatalı!")
-                    .detay(null)
                     .build();
         }
+
     }
 
     @Override
-    public TalimatOutput<?> cikar(CikarDTO input) {
+    public TalimatOutput<?> cikar(TalimatEntity input) {
 
         CikarInput requestBody = new CikarInput();
         requestBody.setCompanyId(542);
@@ -207,51 +250,76 @@ public class VodafoneClient implements IClient {
         requestBody.setCustomerReferenceType("MSISDN");
         requestBody.setDescription("Otomatik Ödeme Talimat Silme");
         OriginatorInfo originatorInfo = new OriginatorInfo();
-        originatorInfo.setCity(6);
-        originatorInfo.setBranch("6");
-        originatorInfo.setTeller("6");
-        originatorInfo.setUser("1");
+        originatorInfo.setCity(input.getMerkezId());
+        originatorInfo.setBranch(String.valueOf(input.getSubeId()));
+        originatorInfo.setTeller(String.valueOf(input.getGiseNo()));
+        originatorInfo.setUser(String.valueOf(input.getKullaniciId()));
         requestBody.setOriginatorInfo(originatorInfo);
-        requestBody.setAcceptanceDate(input.getTalimatTarihi());
+        requestBody.setAcceptanceDate(DateUtil.yyyyMMdd2LocalDateTime(input.getTalimatBaslangic()));
 
 
-        HttpEntity<CikarInput> requestEntity = new HttpEntity<>(requestBody);
+        HttpEntity<CikarInput> requestEntity = new HttpEntity<>(requestBody, getToken());
         ResponseEntity<CikarOutput> response = null;
 
         try {
-            response = restTemplate.exchange(kurum.getUrl()+"/automatedPostpaid/delete", HttpMethod.POST, requestEntity, CikarOutput.class);
-            // İşlemler devam eder...
+            response = restTemplate.exchange(Kurum.vodafone.getUrl()+"/automatedPostpaid/delete", HttpMethod.POST, requestEntity, CikarOutput.class);
         } catch (HttpClientErrorException e) {
-            // HTTP isteğiyle ilgili istisnaları işle
-            log.warn("kurum: {}, telefon: {}, HTTP Client Hatası: {}", kurum, input.getTelefonNo(), e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        } catch (HttpServerErrorException e) {
-            // Sunucu tarafındaki HTTP hatalarını işle
-            log.warn("kurum: {}, telefon: {}, HTTP Sunucu Hatası: {}", kurum, input.getTelefonNo(), e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        } catch (RestClientException e) {
-            // Genel Rest istisnalarını işle
-            log.warn("kurum: {}, telefon: {}, Rest Hatası: {}", kurum, input.getTelefonNo(), e.getMessage());
-            throw new RuntimeException(e.getMessage());
+
+            VodafoneResponse responseOther;
+
+            try {
+                responseOther = objectMapper.readValue(e.getResponseBodyAsString(), VodafoneResponse.class);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex.getMessage());
+            }
+
+            if (e.getStatusCode().equals(HttpStatus.BAD_REQUEST)) {
+
+                switch (responseOther.getResponseCode()) {
+
+                    case "ORAP-1005" -> {
+                        return TalimatOutput.<VodafoneResponse>builder()
+                                .sonuc(false)
+                                .aciklama("Aynı veya farklı kurumdan talimat girişi mevcut")
+                                .build();
+                    }
+
+                    case "ORAP-1002" -> {
+                        return TalimatOutput.<VodafoneResponse>builder()
+                                .sonuc(false)
+                                .aciklama("Farklı kurumdan talimat girişi mevcut")
+                                .build();
+                    }
+
+                    case "ORAP-1001" -> {
+                        return TalimatOutput.<VodafoneResponse>builder()
+                                .sonuc(false)
+                                .aciklama("Aynı kurumdan talimat girişi mevcut")
+                                .build();
+                    }
+
+                    default -> {
+                        return TalimatOutput.<VodafoneResponse>builder()
+                                .sonuc(false)
+                                .aciklama("Bilinmeyen hata")
+                                .build();
+                    }
+                }
+
+            }
         } catch (Exception e) {
-            // Diğer tüm istisnaları işle
-            log.warn("kurum: {}, telefon: {}, Bilinmeyen Hata: {}", kurum, input.getTelefonNo(), e.getMessage());
-            throw new RuntimeException(e.getMessage());
+            log.warn("kurum: {}, sunucu hatası yakalandı, telefon: {}", Kurum.vodafone.name(), input.getTelefonNo());
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
         }
 
         if (Objects.requireNonNull(response.getBody()).getResponseCode().equals("0000")) {
 
-            return TalimatOutput.<CikarOutput>builder()
-                    .sonuc("00")
-                    .aciklama("Talimat çıkar başarılı")
-                    .detay(response.getBody())
-                    .build();
+            return TalimatOutput.builder().sonuc(true).aciklama("Talimat çıkar işlemi başarılı").detay(AraIslemOutput.builder().stan(null).telefonNo(input.getTelefonNo()).build()).build();
 
         } else {
-            return TalimatOutput.<CikarOutput>builder()
-                    .sonuc("01")
-                    .aciklama("Talimat çıkar hatalı!")
-                    .detay(null)
+            return TalimatOutput.<EkleOutput>builder()
+                    .sonuc(false)
+                    .aciklama("Talimat ekle hatalı!")
                     .build();
         }
     }
@@ -294,37 +362,23 @@ public class VodafoneClient implements IClient {
         ResponseEntity<CikarOutput> response = null;
 
         try {
-            response = restTemplate.exchange(kurum.getUrl()+"/recon", HttpMethod.POST, requestEntity, CikarOutput.class);
-            // İşlemler devam eder...
-        } catch (HttpClientErrorException e) {
-            // HTTP isteğiyle ilgili istisnaları işle
-            log.warn("kurum: {}, mutabakat tarih: {}, HTTP Client Hatası: {}", kurum, input, e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        } catch (HttpServerErrorException e) {
-            // Sunucu tarafındaki HTTP hatalarını işle
-            log.warn("kurum: {}, mutabakat tarih: {}, HTTP Sunucu Hatası: {}", kurum, input, e.getMessage());
-            throw new RuntimeException(e.getMessage());
-        } catch (RestClientException e) {
-            // Genel Rest istisnalarını işle
-            log.warn("kurum: {}, mutabakat tarih: {}, Rest Hatası: {}", kurum, input, e.getMessage());
-            throw new RuntimeException(e.getMessage());
+            response = restTemplate.exchange(Kurum.vodafone.getUrl()+"/recon", HttpMethod.POST, requestEntity, CikarOutput.class);
         } catch (Exception e) {
-            // Diğer tüm istisnaları işle
-            log.warn("kurum: {}, mutabakat tarih: {}, Bilinmeyen Hata: {}", kurum, input, e.getMessage());
-            throw new RuntimeException(e.getMessage());
+
+            throw new ClientException("Sunucu hatası yakalandı: "+e.getMessage());
         }
 
         if (Objects.requireNonNull(response.getBody()).getResponseCode().equals("0000")) {
 
             return TalimatOutput.<CikarOutput>builder()
-                    .sonuc("00")
+                    .sonuc(true)
                     .aciklama("Talimat çıkar başarılı")
                     .detay(response.getBody())
                     .build();
 
         } else {
             return TalimatOutput.<CikarOutput>builder()
-                    .sonuc("01")
+                    .sonuc(false)
                     .aciklama("Talimat çıkar hatalı!")
                     .detay(null)
                     .build();
@@ -332,7 +386,7 @@ public class VodafoneClient implements IClient {
     }
 
 
-    public Integer generateStan() {
+    private Integer generateStan() {
 
         DateFormat uzun = null;
         String stanstring = "";
@@ -350,31 +404,42 @@ public class VodafoneClient implements IClient {
 
     }
 
-    public static HttpHeaders getToken() {
+    private static HttpHeaders getToken() {
+        String cacheKey = CLIENT_ID;
 
-        String tokenUrl = "https://pttwsint.ptt.gov.tr/pttbank/vodafone/oauth/token";
-        String clientId = "Ptt";
+        CachedToken cachedToken = tokenCache.get(cacheKey);
+        if (cachedToken != null && !cachedToken.isExpired()) {
+            return createTokenHeaders(cachedToken.getToken());
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        String requestBody = "grant_type=client_credentials&client_id=" + clientId;
+        String requestBody = "grant_type=client_credentials&client_id=" + CLIENT_ID;
 
         HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
-
-        ResponseEntity<AccessToken> response = new RestTemplate().postForEntity(tokenUrl, request, AccessToken.class);
+        ResponseEntity<AccessToken> response = new RestTemplate().postForEntity(TOKEN_URL, request, AccessToken.class);
 
         if (response.getStatusCode() == HttpStatus.OK) {
+            String newToken = Objects.requireNonNull(response.getBody()).getAccess_token();
+            long expiresIn = response.getBody().getExpires_in();
 
-            HttpHeaders tokenHeaders = new HttpHeaders();
-            tokenHeaders.set("Authorization", "Bearer " + Objects.requireNonNull(response.getBody()).getAccess_token());
-            tokenHeaders.setContentType(MediaType.APPLICATION_JSON);
+            // Cache the new token
+            cachedToken = new CachedToken(newToken, expiresIn);
+            tokenCache.put(cacheKey, cachedToken);
 
-            return tokenHeaders;
+            return createTokenHeaders(newToken);
         } else {
-            System.out.println("Token alma işlemi başarısız oldu. Durum kodu: " + response.getStatusCodeValue());
+            log.warn("Token alma işlemi başarısız oldu. Durum kodu: " + response.getStatusCodeValue());
             return null;
         }
+    }
+
+    private static HttpHeaders createTokenHeaders(String token) {
+        HttpHeaders tokenHeaders = new HttpHeaders();
+        tokenHeaders.set("Authorization", "Bearer " + token);
+        tokenHeaders.setContentType(MediaType.APPLICATION_JSON);
+        return tokenHeaders;
     }
 
 }

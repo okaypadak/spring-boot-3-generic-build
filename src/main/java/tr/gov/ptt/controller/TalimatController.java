@@ -1,13 +1,9 @@
 package tr.gov.ptt.controller;
 
-import tr.gov.ptt.dto.request.RequestTalimat;
+import tr.gov.ptt.dto.request.*;
 import tr.gov.ptt.dto.MutabakatDTO;
-import tr.gov.ptt.dto.request.MutabakatSorguRequest;
-import tr.gov.ptt.dto.request.TalimatCikarRequest;
-import tr.gov.ptt.dto.request.GenelEkleRequest;
-import tr.gov.ptt.dto.request.TalimatSorgulaRequest;
 import tr.gov.ptt.dto.response.TalimatGenelResponse;
-import tr.gov.ptt.kanal.IProcess;
+import tr.gov.ptt.kanal.IChannel;
 import tr.gov.ptt.kurulum.KanalYukleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -17,44 +13,41 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 public class TalimatController {
+
     @Autowired
     private KanalYukleService kanalYukleService;
 
 
     @PostMapping("/talimatSorgula")
     @ResponseBody
-    public TalimatGenelResponse<?> talimatSorgula(@RequestBody RequestTalimat<TalimatSorgulaRequest> request) throws Exception {
+    public TalimatGenelResponse<?> talimatSorgula(@RequestBody TalimatSorgulaRequest request) throws Exception {
 
-        IProcess process = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
-        process.setKurum(request.getKurum());
-        return process.talimatSorgula(TalimatSorgulaRequest.builder().telefonNo(request.getDetay().getTelefonNo()).hvkNo(request.getDetay().getHvkNo()).build());
+        IChannel process = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
+        return process.talimatSorgula(request);
 
     }
 
     @PostMapping("/talimatEkle")
     @ResponseBody
-    public TalimatGenelResponse<?> talimatEkle(@RequestBody RequestTalimat<GenelEkleRequest> request) throws Exception {
+    public TalimatGenelResponse<?> talimatEkle(@RequestBody TalimatEkleRequest request) throws Exception {
 
-        IProcess process = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
-        process.setKurum(request.getKurum());
-        return process.talimatEkle(request.getDetay());
+        IChannel channel = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
+        return channel.talimatEkle(request);
     }
 
     @PostMapping("/talimatCikar")
     @ResponseBody
-    public TalimatGenelResponse<?> talimatCikar(@RequestBody RequestTalimat<TalimatCikarRequest> request) throws Exception {
+    public TalimatGenelResponse<?> talimatCikar(@RequestBody TalimatCikarRequest request) throws Exception {
 
-        IProcess process = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
-        process.setKurum(request.getKurum());
-        return process.talimatCikar(request.getDetay());
+        IChannel channel = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
+        return channel.talimatCikar(request);
     }
 
     @PostMapping("/mutabakatSorgu")
     @ResponseBody
-    public MutabakatDTO mutabakatSorgu(@RequestBody RequestTalimat<MutabakatSorguRequest> request) throws Exception {
+    public MutabakatDTO mutabakatSorgu(@RequestBody MutabakatRequest request) throws Exception {
 
-        IProcess process = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
-        process.setKurum(request.getKurum());
-        return process.mutabakatSorgu(request.getDetay().getTarih());
+        IChannel channel = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
+        return channel.mutabakatSorgu(request.getTarih());
     }
 }

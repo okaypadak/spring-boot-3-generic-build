@@ -5,13 +5,20 @@ import jakarta.persistence.Tuple;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-import tr.gov.ptt.entity.TalimatEntity;
-import tr.gov.ptt.entity.TalimatEntity;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface BaseRepository extends JpaRepository<TalimatEntity, Long> {
+public interface TalimatRepository extends JpaRepository<TalimatEntity, Long> {
+
+    List<TalimatEntity> findByDurumOrTandemDurum(Integer clientDurum, Integer tandemDurum);
+
+    List<TalimatEntity> findByDurum(Integer clientDurum);
+
+    List<TalimatEntity> findByTelefonNo(String telefonNo);
+
+    Optional<TalimatEntity> findByTelefonNoAndDurum(String telefonNo, Integer durum);
 
     Optional<TalimatEntity> findByKurumAndTelefonNoAndDurum(String kurum, String telefonNo, Integer durum);
 

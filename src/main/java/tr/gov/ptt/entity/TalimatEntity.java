@@ -35,10 +35,10 @@ public class TalimatEntity {
     private String telefonNo;
 
     @Column(name = "TAHSILAT_STAN")
-    private Integer tahsilatStan;
+    private Long tahsilatStan;
 
     @Column(name = "IPTAL_STAN")
-    private Integer iptalStan;
+    private Long iptalStan;
 
     @Column(name = "HESAP_ID")
     private Long hesapId;
@@ -63,5 +63,17 @@ public class TalimatEntity {
 
     @Column(name = "TANDEM_DURUM")
     private Integer tandemDurum;
+
+    @Column(name = "KULLANICI_ID")
+    private Integer kullaniciId;
+
+    @Column(name = "MERKEZ_ID")
+    private Integer merkezId;
+
+    @Column(name = "SUBE_ID")
+    private Integer subeId;
+
+    @Column(name = "GISE_NO")
+    private Integer giseNo;
 
 }

@@ -12,9 +12,9 @@ import org.springframework.stereotype.Component;
 @Lazy
 @Slf4j
 @NoArgsConstructor
-public class MobilKanal extends TemelKanal {
+public class PostawebKanal extends TemelKanal {
     public void otherMethod() {
-        System.out.println("otherDefaultMethod");
+        log.info("otherDefaultMethod");
     }
 
 }

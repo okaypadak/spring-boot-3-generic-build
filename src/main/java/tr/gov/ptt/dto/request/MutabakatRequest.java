@@ -7,14 +7,10 @@ import tr.gov.ptt.enumeration.Kurum;
 
 @Data
 @Builder
-public class TalimatCikarRequest {
+public class MutabakatRequest {
 
 	private Kanal kanal;
 	private Kurum kurum;
-	private Long hesapId;
-	private String hesapNo;
-	private String telefonNo;
-	private String adSoyad;
-	private String ibanNo;
+	private Integer tarih;
 
 }
