@@ -33,3 +33,10 @@ spring:
         persistence:
           validation:
             mode: none
+
+kurum:
+  active: TEST
+
+
+tandem:
+  address: ${ADDRESS:http:\\10.120.200.161:30000/tandem-client}

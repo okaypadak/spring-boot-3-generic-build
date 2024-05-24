@@ -1,9 +1,9 @@
 package tr.gov.ptt.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import tr.gov.ptt.dto.Kullanici;
-import tr.gov.ptt.dto.request.TalimatCikarRequest;
 import tr.gov.ptt.dto.request.TalimatEkleRequest;
 import tr.gov.ptt.dto.tandem.PCHListResponse;
 import tr.gov.ptt.dto.tandem.RequestObject;
@@ -14,7 +14,8 @@ import tr.gov.ptt.enumeration.Kurum;
 @Component
 public class TandemService {
 
-    private static final String BASE_URL = "http://localhost:9995/tandemclient/";
+    @Value("${tandem.address}")
+    private String BASE_URL;
 
     private final RestTemplate restTemplate;
 
