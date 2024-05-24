@@ -4,10 +4,10 @@ package tr.gov.ptt.enumeration;
 import lombok.Getter;
 
 public enum Kurum {
-    telekomMobil("telekomMobilClient","telekomMobilService","https://ttwsgtest.turktelekom.com.tr/services","2762","sifre123","4"),
-    telekomSabit("telekomSabitClient", "telekomSabitService","https://testbnkodeme.turktelekom.com.tr","2762","sifre123","4"),
-    turkcell("turkcellClient", "turkcellService","https://sertifikasyon-ist.turkcell.com.tr/collgwWebServices/CollgwInformWebService","ptt","7777777777777777","4"),
-    vodafone("vodafoneClient", "vodafoneService","https://pttwsint.ptt.gov.tr/vodafone/talimatislemleri","","","4");
+    telekomMobil("telekomMobilClient", "telekomMobilService", "https://pttwsint.ptt.gov.tr/turktelekom/test", "2762", "sifre123", "4"),
+    telekomSabit("telekomSabitClient", "telekomSabitService", "https://pttwsint.ptt.gov.tr/turktelekom/bnkodeme/test", "2762", "sifre123", "4"),
+    turkcell("turkcellClient", "turkcellService", "https://pttwsint.ptt.gov.tr/pttbank/turkcell/sertifikasyon/collgwWebServices", "ptt", "7777777777777777", "4"),
+    vodafone("vodafoneClient", "vodafoneService", "https://pttwsint.ptt.gov.tr/vodafone/talimatislemleri", "", "", "4");
 
     @Getter
     private String clientAdi;
@@ -35,7 +35,7 @@ public enum Kurum {
         this.serviceAdi = serviceAdi;
         this.kod = kod;
     }
-    }
+}
 
 
 

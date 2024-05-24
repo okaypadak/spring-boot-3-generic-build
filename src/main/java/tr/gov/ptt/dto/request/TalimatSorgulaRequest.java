@@ -2,7 +2,6 @@ package tr.gov.ptt.dto.request;
 
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import tr.gov.ptt.enumeration.Kurum;
 

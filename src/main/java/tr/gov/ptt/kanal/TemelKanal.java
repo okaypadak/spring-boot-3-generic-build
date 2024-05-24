@@ -1,6 +1,5 @@
 package tr.gov.ptt.kanal;
 
-import lombok.RequiredArgsConstructor;
 import tr.gov.ptt.client.IClient;
 import tr.gov.ptt.dto.*;
 import tr.gov.ptt.dto.request.TalimatCikarRequest;
@@ -11,7 +10,6 @@ import tr.gov.ptt.dto.response.TalimatGenelResponse;
 import tr.gov.ptt.dto.tandem.PCHListResponse;
 import tr.gov.ptt.dto.tandem.ResponseObject;
 import tr.gov.ptt.entity.TalimatEntity;
-import tr.gov.ptt.enumeration.Kurum;
 import tr.gov.ptt.service.IService;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

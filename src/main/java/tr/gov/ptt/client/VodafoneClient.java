@@ -1,6 +1,5 @@
 package tr.gov.ptt.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import tr.gov.ptt.dto.AccessToken;
 import tr.gov.ptt.dto.AraIslemOutput;

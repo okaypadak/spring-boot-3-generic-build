@@ -1,14 +1,11 @@
 package tr.gov.ptt.client;
 
-import tr.gov.ptt.dto.CikarDTO;
-import tr.gov.ptt.dto.Kullanici;
 import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.MutabakatKapatRequest;
 import tr.gov.ptt.dto.request.TalimatEkleRequest;
 import tr.gov.ptt.dto.request.TalimatSorgulaRequest;
 import org.springframework.stereotype.Component;
 import tr.gov.ptt.entity.TalimatEntity;
-import tr.gov.ptt.enumeration.Kurum;
 
 @Component
 public interface IClient {

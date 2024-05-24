@@ -23,7 +23,6 @@ import tr.gov.ptt.ws.client.telekom.mutabakat.model.mutabakat.MutabakatBilgi;
 import tr.gov.ptt.ws.client.telekom.mutabakat.model.mutabakat.MutabakatRequest;
 import tr.gov.ptt.ws.client.telekom.mutabakat.model.ortak.IslemYapan;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -232,7 +231,6 @@ public class TelekomSabitClient implements IClient {
             output.setSonuc(true);
             output.setAciklama("Talimat yapıldı");
             output.setDetay(AraIslemOutput.builder().stan(Long.valueOf(stan)).telefonNo(input.getTelefonNo()).build());
-
 
         }
 
