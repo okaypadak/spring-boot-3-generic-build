@@ -34,9 +34,12 @@ spring:
           validation:
             mode: none
 
-kurum:
+api:
   active: TEST
 
 
+
 tandem:
-  address: ${ADDRESS:http:\\10.120.200.161:30000/tandem-client}
+  address: ${ADDRESS:http://tandem-client-entrypoint/tandemclient/}
+  #address: ${ADDRESS:http://10.120.200.161:30000/tandemclient/}
+  #address: ${ADDRESS:http://localhost:9995/tandemclient/}
