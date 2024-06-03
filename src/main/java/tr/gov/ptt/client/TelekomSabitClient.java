@@ -2,6 +2,7 @@ package tr.gov.ptt.client;
 
 import tr.gov.ptt.dto.AraIslemOutput;
 import tr.gov.ptt.dto.Kullanici;
+import tr.gov.ptt.dto.output.MutakabatKapatResponse;
 import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.MutabakatKapatRequest;
 import tr.gov.ptt.dto.request.TalimatEkleRequest;
@@ -393,7 +394,7 @@ public class TelekomSabitClient implements IClient {
     }
 
     @Override
-    public TalimatOutput<?> mutabakatKapat(MutabakatKapatRequest input) {
+    public MutakabatKapatResponse mutabakatKapat(MutabakatKapatRequest input) {
         proxyMutabakat = getMutAuthorizationStub();
 
         int sehirKodu = 6;
@@ -450,33 +451,30 @@ public class TelekomSabitClient implements IClient {
         sorgu.setMutabakatIslemSayisi(2);
         sorgu.setMutabakatBilgiDizi(mutabakatBilgiDizi);
 
-        sorgu.setMutabakatTarihi(Integer.parseInt(input.getTarih()));
+        sorgu.setMutabakatTarihi(input.getTarih());
 
         MutabakatResponse mutakabatTamamla;
 
         try {
             mutakabatTamamla = proxyMutabakat.mutabakatBildir(sorgu);
         } catch (Exception e) {
-            return TalimatOutput.<MutabakatResponse>builder()
+            return MutakabatKapatResponse.<MutabakatResponse>builder()
                     .sonuc(false)
                     .aciklama("Mutabakat hatalı!")
-                    .detay(null)
                     .build();
         }
 
         if (mutakabatTamamla.getOzetCevapMesaj().getIslemSonucKodu().equals("00")) {
 
-            return TalimatOutput.<MutabakatResponse>builder()
+            return MutakabatKapatResponse.<MutabakatResponse>builder()
                     .sonuc(true)
                     .aciklama("Mutabakat başarılı tamamlandı")
-                    .detay(mutakabatTamamla)
                     .build();
 
         } else {
-            return TalimatOutput.<MutabakatResponse>builder()
+            return MutakabatKapatResponse.<MutabakatResponse>builder()
                     .sonuc(false)
-                    .aciklama("Mutabakat hatalı")
-                    .detay(null)
+                    .aciklama("Mutabakat işlemi başarısız")
                     .build();
         }
     }

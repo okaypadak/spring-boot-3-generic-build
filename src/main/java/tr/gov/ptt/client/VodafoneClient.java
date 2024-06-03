@@ -5,6 +5,7 @@ import tr.gov.ptt.dto.AccessToken;
 import tr.gov.ptt.dto.AraIslemOutput;
 import tr.gov.ptt.dto.CachedToken;
 import tr.gov.ptt.dto.Kullanici;
+import tr.gov.ptt.dto.output.MutakabatKapatResponse;
 import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.MutabakatKapatRequest;
 import tr.gov.ptt.dto.request.TalimatEkleRequest;
@@ -324,7 +325,12 @@ public class VodafoneClient implements IClient {
     }
 
     @Override
-    public TalimatOutput mutabakatKapat(MutabakatKapatRequest input) {
+    public MutakabatKapatResponse mutabakatKapat(MutabakatKapatRequest input) {
+
+        int sehirKodu = 6;
+        String subeKodu = "3618";
+        String giseKodu = "45";
+        String kullaniciKodu = "2";
 
         MutabakatInput requestBody = new MutabakatInput();
         requestBody.setCompanyId(542);
@@ -334,13 +340,12 @@ public class VodafoneClient implements IClient {
         requestBody.setIpAddress("192.168.158.148");
         requestBody.setDescription("Otomatik Ödeme Talimat Mutabakat");
         OriginatorInfo originatorInfo = new OriginatorInfo();
-        originatorInfo.setCity(6);
-        originatorInfo.setBranch("6");
-        originatorInfo.setTeller("6");
-        originatorInfo.setUser("1");
+        originatorInfo.setCity(sehirKodu);
+        originatorInfo.setBranch(subeKodu);
+        originatorInfo.setTeller(giseKodu);
+        originatorInfo.setUser(kullaniciKodu);
         requestBody.setOriginatorInfo(originatorInfo);
         requestBody.setReconDate(DateUtil.yyyyMMdd2String());
-
 
         ReconData ekle = new ReconData();
         ekle.setType("");
@@ -369,17 +374,15 @@ public class VodafoneClient implements IClient {
 
         if (Objects.requireNonNull(response.getBody()).getResponseCode().equals("0000")) {
 
-            return TalimatOutput.<CikarOutput>builder()
+            return MutakabatKapatResponse.<CikarOutput>builder()
                     .sonuc(true)
-                    .aciklama("Talimat çıkar başarılı")
-                    .detay(response.getBody())
+                    .aciklama("Mutabakat başarılı")
                     .build();
 
         } else {
-            return TalimatOutput.<CikarOutput>builder()
+            return MutakabatKapatResponse.<CikarOutput>builder()
                     .sonuc(false)
-                    .aciklama("Talimat çıkar hatalı!")
-                    .detay(null)
+                    .aciklama("Mutabakat işlemi başarısız")
                     .build();
         }
     }

@@ -2,6 +2,7 @@ package tr.gov.ptt.client;
 
 import tr.gov.ptt.dto.AraIslemOutput;
 import tr.gov.ptt.dto.Kullanici;
+import tr.gov.ptt.dto.output.MutakabatKapatResponse;
 import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.MutabakatKapatRequest;
 import tr.gov.ptt.dto.request.TalimatEkleRequest;
@@ -47,7 +48,7 @@ public class TurkcellClient implements IClient {
             logonRequest.setBankId(TURKCELL_BANKID);
             logonRequest.setMsgDate(DateUtil.yyyyMMddHHmmss2String());
             logonRequest.setPassword(Kurum.turkcell.getSifre());
-            logonRequest.setStan(10025);
+            logonRequest.setStan(DateUtil.HHmmss2Integer());
 
             LogonResponse logonResponse;
 
@@ -62,8 +63,10 @@ public class TurkcellClient implements IClient {
                     }
                 }
 
+                log.info("sessionId alma işlemi başarılı");
                 sessionId = logonResponse.getSessionId();
             } catch (Exception e) {
+                log.warn("sessionId alınamadı: {}",e.getMessage());
                 throw new RuntimeException("SessionId alınamadı");
             }
 
@@ -242,8 +245,13 @@ public class TurkcellClient implements IClient {
     }
 
     @Override
-    public TalimatOutput<?> mutabakatKapat(MutabakatKapatRequest input) {
+    public MutakabatKapatResponse mutabakatKapat(MutabakatKapatRequest input) {
         logon();
+
+        int sehirKodu = 6;
+        String subeKodu = "3618";
+        String giseKodu = "45";
+        String kullaniciKodu = "2";
 
         ReconciliationRequest request = new ReconciliationRequest();
 
@@ -271,13 +279,13 @@ public class TurkcellClient implements IClient {
 
         request.setReconInfoList(mutabakatListe);
 
-        request.setAccDate(input.getTarih());
+        request.setAccDate(String.valueOf(input.getTarih()));
 
         Origin originator = new Origin();
-        originator.setBranch("6");
-        originator.setCity(6);
-        originator.setTeller("6");
-        originator.setUser("6");
+        originator.setBranch(subeKodu);
+        originator.setCity(sehirKodu);
+        originator.setTeller(giseKodu);
+        originator.setUser(kullaniciKodu);
         request.setOrig(originator);
 
         BaseOutputResponse response;
@@ -290,9 +298,9 @@ public class TurkcellClient implements IClient {
 
 
         if(response.getErrMsg().equals("ok")) {
-            return TalimatOutput.builder().sonuc(true).aciklama("Mutabakat işlemi başarılı").build();
+            return MutakabatKapatResponse.builder().sonuc(true).aciklama("Mutabakat işlemi başarılı").build();
         } else {
-            return TalimatOutput.builder().sonuc(false).aciklama("Mutabakat işlemi başarısız").build();
+            return MutakabatKapatResponse.builder().sonuc(false).aciklama("Mutabakat işlemi başarısız").build();
         }
     }
 

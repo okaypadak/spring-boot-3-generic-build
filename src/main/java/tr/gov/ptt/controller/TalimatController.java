@@ -1,5 +1,7 @@
 package tr.gov.ptt.controller;
 
+import tr.gov.ptt.dto.output.MutakabatKapatResponse;
+import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.*;
 import tr.gov.ptt.dto.MutabakatDTO;
 import tr.gov.ptt.dto.response.TalimatGenelResponse;
@@ -45,9 +47,17 @@ public class TalimatController {
 
     @PostMapping("/mutabakatSorgu")
     @ResponseBody
-    public MutabakatDTO mutabakatSorgu(@RequestBody MutabakatRequest request) throws Exception {
+    public MutabakatDTO mutabakatSorgu(@RequestBody MutabakatSorguRequest request) throws Exception {
 
         IChannel channel = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
         return channel.mutabakatSorgu(request.getTarih());
+    }
+
+    @PostMapping("/mutabakatKapat")
+    @ResponseBody
+    public MutakabatKapatResponse mutabakatKapat(@RequestBody MutabakatKapatRequest request) throws Exception {
+
+        IChannel channel = kanalYukleService.getKanal(request.getKanal(), request.getKurum());
+        return channel.mutabakatKapat(request);
     }
 }

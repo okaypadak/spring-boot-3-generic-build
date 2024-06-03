@@ -1,7 +1,10 @@
 package tr.gov.ptt.kanal;
 
+import org.springframework.beans.factory.annotation.Value;
 import tr.gov.ptt.client.IClient;
 import tr.gov.ptt.dto.*;
+import tr.gov.ptt.dto.output.MutakabatKapatResponse;
+import tr.gov.ptt.dto.request.MutabakatKapatRequest;
 import tr.gov.ptt.dto.request.TalimatCikarRequest;
 import tr.gov.ptt.dto.request.TalimatEkleRequest;
 import tr.gov.ptt.dto.request.TalimatSorgulaRequest;
@@ -38,9 +41,12 @@ public abstract class TemelKanal implements IChannel {
     @Autowired
     private TalimatService talimatService;
 
+    @Value("${api.active}")
+    private String apiActive;
+
 
     @Override
-    public TalimatGenelResponse<?> talimatSorgula(TalimatSorgulaRequest request) throws Exception {
+    public TalimatGenelResponse<?> talimatSorgula(TalimatSorgulaRequest request) {
 
         PCHListResponse tandemVeri = null;
         TalimatOutput<?> response = null;
@@ -98,7 +104,7 @@ public abstract class TemelKanal implements IChannel {
     }
 
     @Override
-    public TalimatGenelResponse<?> talimatEkle(TalimatEkleRequest request) throws Exception {
+    public TalimatGenelResponse<?> talimatEkle(TalimatEkleRequest request) {
 
         if (talimatService.bekleyenDurumKontrol(request.getTelefonNo()))
             return TalimatGenelResponse.builder().sonuc(false).aciklama("Bekleyen işlem mevcut lütfen daha sonra tekrar deneyiniz").build();
@@ -127,16 +133,17 @@ public abstract class TemelKanal implements IChannel {
                 //servis başarılı ise veritabanini güncelle
                 talimatService.guncelleEkleClient(aktifTalimat, response.getDetay().getStan());
 
-                try {
-                    //TANDEM EKLE TEST İÇİN EKLENDİ
-                    ResponseObject tandemSonuc = tandemService.talimatEkle(request);
-                    talimatService.tandemDurumGuncelle(aktifTalimat, 1);
-
-
-                    log.info("kurum: {}, tandem ekleme işlemi başarılı, telefon: {}", request.getKurum().getClientAdi(), request.getTelefonNo());
-                } catch (Exception e) {
-                    log.info("kurum: {}, tandem ekleme işlemi başarılız, hata: {}", request.getKurum().getClientAdi(), e.getMessage());
+                if(apiActive.equals("TEST")) {
+                    try {
+                        //TANDEM EKLE TEST İÇİN EKLENDİ
+                        ResponseObject tandemSonuc = tandemService.talimatEkle(request);
+                        talimatService.tandemDurumGuncelle(aktifTalimat, 1);
+                        log.info("kurum: {}, tandem ekleme işlemi başarılı, telefon: {}", request.getKurum().getClientAdi(), request.getTelefonNo());
+                    } catch (Exception e) {
+                        log.info("kurum: {}, tandem ekleme işlemi başarılız, hata: {}", request.getKurum().getClientAdi(), e.getMessage());
+                    }
                 }
+
 
             } else {
 
@@ -154,7 +161,7 @@ public abstract class TemelKanal implements IChannel {
     }
 
     @Override
-    public TalimatGenelResponse<?> talimatCikar(TalimatCikarRequest request) throws Exception {
+    public TalimatGenelResponse<?> talimatCikar(TalimatCikarRequest request) {
 
         //VERİLERİ GETİR
         log.info("kurum: {}, telefon bilgisine göre verileri çekiyor, telefon: {}", request.getKurum().getClientAdi(), request.getTelefonNo());
@@ -211,8 +218,12 @@ public abstract class TemelKanal implements IChannel {
     }
 
     @Override
-    public MutabakatDTO mutabakatSorgu(Integer input) throws Exception {
-
+    public MutabakatDTO mutabakatSorgu(Integer input) {
         return service.mutabakatSorgula(input);
+    }
+
+    @Override
+    public MutakabatKapatResponse mutabakatKapat(MutabakatKapatRequest input) {
+        return client.mutabakatKapat(input);
     }
 }

@@ -1,7 +1,9 @@
 package tr.gov.ptt.client;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import tr.gov.ptt.dto.AraIslemOutput;
 import tr.gov.ptt.dto.Kullanici;
+import tr.gov.ptt.dto.output.MutakabatKapatResponse;
 import tr.gov.ptt.dto.output.TalimatOutput;
 import tr.gov.ptt.dto.request.*;
 import tr.gov.ptt.dto.request.TalimatEkleRequest;
@@ -32,6 +34,7 @@ import java.util.Date;
 @Component
 @Slf4j
 public class TelekomMobilClient implements IClient {
+
 
     private static int mesajTipiSorgu = 200;
     private static int mesajTipiTahsilat = 220;
@@ -381,7 +384,7 @@ public class TelekomMobilClient implements IClient {
     }
 
     @Override
-    public TalimatOutput<?> mutabakatKapat(MutabakatKapatRequest input) {
+    public MutakabatKapatResponse mutabakatKapat(MutabakatKapatRequest input) {
 
         proxyMutabakat = getMutAuthorizationStub();
 
@@ -439,33 +442,30 @@ public class TelekomMobilClient implements IClient {
         sorgu.setMutabakatIslemSayisi(2);
         sorgu.setMutabakatBilgiDizi(mutabakatBilgiDizi);
 
-        sorgu.setMutabakatTarihi(Integer.parseInt(input.getTarih()));
+        sorgu.setMutabakatTarihi(input.getTarih());
 
         MutabakatResponse mutakabatTamamla;
 
         try {
             mutakabatTamamla = proxyMutabakat.mutabakatBildir(sorgu);
         } catch (Exception e) {
-            return TalimatOutput.<MutabakatResponse>builder()
+            return MutakabatKapatResponse.<MutabakatResponse>builder()
                     .sonuc(false)
                     .aciklama("Mutabakat hatalı!")
-                    .detay(null)
                     .build();
         }
 
         if (mutakabatTamamla.getOzetCevapMesaj().getIslemSonucKodu().equals("00")) {
 
-            return TalimatOutput.<MutabakatResponse>builder()
+            return MutakabatKapatResponse.<MutabakatResponse>builder()
                     .sonuc(true)
                     .aciklama("Mutabakat başarılı tamamlandı")
-                    .detay(mutakabatTamamla)
                     .build();
 
         } else {
-            return TalimatOutput.<MutabakatResponse>builder()
+            return MutakabatKapatResponse.<MutabakatResponse>builder()
                     .sonuc(false)
-                    .aciklama("Mutabakat hatalı!")
-                    .detay(null)
+                    .aciklama("Mutabakat işlemi başarısız")
                     .build();
         }
     }
